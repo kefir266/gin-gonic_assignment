@@ -11,26 +11,34 @@ import (
 )
 
 var MX, MY int = 8, 8
+var server *gin.Engine
 
+//Structure for move
 type Dir struct {
 	y, x int
 }
 
+//Object for check
 type Field struct{
 	x, y int
 	horseDir []Dir
 }
 
+//convert string position to coordinate
 func (field *Field) posToCoordinate(pos string) error {
 	var err error
+	//convert symbolic notation coordinate to numeric
 	field.x = int(strings.ToUpper(pos)[0] - byte('A')+1)
 	field.y, err = strconv.Atoi(string(pos[1]))
+
+	//validate input coordinates
 	if (field.x > MX && field.y > MY && field.x <= 0 && field.y <= 0 ){
 		err = errors.New("Out of range")
 	}
 	return err
 }
 
+//convert move to new string position
 func (field *Field) moveToPos(dir Dir) string {
 	var  nX, nY int
 	nX = field.x + dir.x
@@ -40,6 +48,7 @@ func (field *Field) moveToPos(dir Dir) string {
 
 }
 
+//Init object Field, fill all horse's directions
 func (field *Field) init()  {
 	field.horseDir = []Dir{ {-2, -1}, {-1, -2},
 		{-2, 1},{-1, 2},
@@ -47,6 +56,7 @@ func (field *Field) init()  {
 		{2, 1},{1, 2} }
 }
 
+//Validate current move
 func (field *Field) moveValid(dir Dir) bool  {
 	var dx, dy int
 	dx = field.x + dir.x
@@ -54,6 +64,7 @@ func (field *Field) moveValid(dir Dir) bool  {
 	return  (dx <= MX && dy <= MY && dx > 0 && dy > 0 )
 }
 
+//Determine all valid moves
 func (field *Field) getValidMoves() *list.List  {
 	var lMoves *list.List = list.New()
 	for _,d := range field.horseDir {
@@ -65,9 +76,10 @@ func (field *Field) getValidMoves() *list.List  {
 	return lMoves
 }
 
-
+//Callback function for GET request /horse
 func horse(c *gin.Context) {
 	pos := c.Param("xy")
+	//check position contain two symbol
 	if (len(pos) > 2){
 		c.String(400,"Position isn't valid!")
 		return
@@ -80,7 +92,7 @@ func horse(c *gin.Context) {
 		return
 	}
 	lMoves := field.getValidMoves()
-	var answer string = "moves "
+	var answer string = ""
 	for v := lMoves.Front() ; v != nil ; v =v.Next() {
 
 		answer += string(v.Value.(string)) + " "
@@ -88,6 +100,7 @@ func horse(c *gin.Context) {
 	c.String(200, answer)
 }
 
+//Callback request for POST request for 1-st task
 func posting(c *gin.Context)  {
 
 	idstr := c.PostForm("id")
@@ -97,7 +110,7 @@ func posting(c *gin.Context)  {
 		c.String(400,"Not valid JSON")
 	}
 	text := c.PostForm("text")
-
+	//validate positive number in id and length of text
 	if (len(text) > 100 && id < 0) {
 		c.String(400,"Not valid JSON")
 		return
@@ -111,15 +124,21 @@ func posting(c *gin.Context)  {
 	}
 }
 
+//Gin engine
+func getEngine() *gin.Engine {
+	// Creates a gin router with default middleware:
+	// logger and recovery (crash-free) middleware
+	router := gin.Default()
+
+	router.GET("/horse/:xy", horse)
+	router.POST("/md5", posting)
+	return router
+}
+
 func main() {
-    // Creates a gin router with default middleware:
-    // logger and recovery (crash-free) middleware
-    router := gin.Default()
 
-    router.GET("/horse/:xy", horse)
-    router.POST("/md5", posting)
-
-    // Listen and server on 0.0.0.0:8080
-    router.Run(":8000")
+    // Listen and server on 0.0.0.0:8000
+	server = getEngine()
+	server.Run(":8000")
 
 }
